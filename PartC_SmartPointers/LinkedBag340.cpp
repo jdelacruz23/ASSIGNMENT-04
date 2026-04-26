@@ -22,10 +22,8 @@ bool LinkedBag<ItemType>::removeSecondNode340() {
         return false;
     }
 
-    Node<ItemType>* nodeToDelete = headPtr->getNext();
-    headPtr->setNext(nodeToDelete->getNext());
-    nodeToDelete->setNext(nullptr);
-    delete nodeToDelete;
+    auto nodeToDelete = std::move(headPtr->next);
+    headPtr->setNext(std::move(nodeToDelete->next));
     itemCount--;
     return true;
 }
@@ -41,15 +39,15 @@ then update pointers
 */
 template<typename ItemType>
 bool LinkedBag<ItemType>::addEnd340(const ItemType& newEntry) {
-    Node<ItemType>* newNodePtr = new Node<ItemType>(newEntry);
+    auto newNodePtr = std::make_unique<Node<ItemType>>(newEntry);
     if (headPtr == nullptr) {
-        headPtr = newNodePtr;
+        headPtr = std::move(newNodePtr);
     }else {
-        Node<ItemType>* curPtr = headPtr;
+        Node<ItemType>* curPtr = headPtr.get();
         while (curPtr->getNext() != nullptr) {
             curPtr = curPtr->getNext();
         }
-        curPtr->setNext(newNodePtr);
+        curPtr->setNext(std::move(newNodePtr));
     }
     itemCount++;
     return true;
@@ -64,7 +62,7 @@ getCurrentSize340Iterative would:
 template<typename ItemType>
 int LinkedBag<ItemType>::getCurrentSize340Iterative() const {
     int bagSizeIterative = 0;
-    Node<ItemType>* curPtr = headPtr; //set curPtr at the head.
+    Node<ItemType>* curPtr = headPtr.get(); //set curPtr at the head.
     while (curPtr != nullptr) {
         curPtr = curPtr->getNext();
         bagSizeIterative++;
@@ -98,7 +96,7 @@ getCurrentSize340Recursive would:
 */
 template<typename ItemType>
 int LinkedBag<ItemType>::getCurrentSize340Recursive() const {
-    return getCurrentSize340RecursiveHelper(headPtr);
+    return getCurrentSize340RecursiveHelper(headPtr.get());
 }
 
 /*
@@ -113,13 +111,13 @@ int LinkedBag<ItemType>::getCurrentSize340RecursiveNoHelper() const {
     if (headPtr == nullptr) {
         return 0;
     }
-    // can't do return 1 + helper because no helper
-    // creates a smallerBag object basically same as helper above but just within
-    LinkedBag<ItemType> smallerBag(*this); //copying current bag
-    Node<ItemType>* nodeToDelete = smallerBag.headPtr;
-    smallerBag.headPtr = smallerBag.headPtr->getNext();
-    nodeToDelete->setNext(nullptr);
-    delete nodeToDelete;
+
+    LinkedBag<ItemType> smallerBag(*this); // copying current bag
+
+    auto nodeToDelete = std::move(smallerBag.headPtr);
+    smallerBag.headPtr = std::move(nodeToDelete->next);
+    smallerBag.itemCount--;
+
     return 1 + smallerBag.getCurrentSize340RecursiveNoHelper();
 }
 
@@ -150,7 +148,7 @@ int LinkedBag<ItemType>::getFrequencyOf340RecursiveHelper(Node<ItemType>* curPtr
 */
 template<typename ItemType>
 int LinkedBag<ItemType>::getFrequencyOf340Recursive(const ItemType& target) const {
-    return getFrequencyOf340RecursiveHelper(headPtr, target);
+    return getFrequencyOf340RecursiveHelper(headPtr.get(), target);
 }
 
 /*
@@ -163,16 +161,17 @@ int LinkedBag<ItemType>::getFrequencyOf340RecursiveNoHelper(const ItemType& targ
     if (headPtr == nullptr) {
         return 0;
     }
-    LinkedBag<ItemType> smallerBag(*this); //copying current bag
-    //same behavior as the one above
-    Node<ItemType>* nodeToDelete = smallerBag.headPtr;
-    smallerBag.headPtr = smallerBag.headPtr->getNext();
-    nodeToDelete->setNext(nullptr);
-    delete nodeToDelete;
+
+    LinkedBag<ItemType> smallerBag(*this); // copy current bag
+
+    auto nodeToDelete = std::move(smallerBag.headPtr);
+    smallerBag.headPtr = std::move(nodeToDelete->next);
     smallerBag.itemCount--;
+
     if (headPtr->getItem() == target) {
         return 1 + smallerBag.getFrequencyOf340RecursiveNoHelper(target);
     }
+
     return smallerBag.getFrequencyOf340RecursiveNoHelper(target);
 }
 
@@ -184,29 +183,28 @@ int LinkedBag<ItemType>::getFrequencyOf340RecursiveNoHelper(const ItemType& targ
 */
 template<typename ItemType>
 ItemType LinkedBag<ItemType>::removeRandom340() {
-    int randomIndex = rand() % itemCount;
-    Node<ItemType>* nodeToDelete = headPtr;
-    Node<ItemType>* prevPtr = nullptr;
-    // base case
+    // base case 
     if (headPtr == nullptr || itemCount == 0) {
         return ItemType();
     }
+
+    int randomIndex = rand() % itemCount;
+
+    // ownerPtr points to the unique_ptr that owns the node we want to remove
+    std::unique_ptr<Node<ItemType>>* ownerPtr = &headPtr;
+
     for (int i = 0; i < randomIndex; i++) {
-        prevPtr = nodeToDelete;
-        nodeToDelete = nodeToDelete->getNext();
-    }
-	// Save the item from the node being removed, then update links:
-	// if deleting the head, move headPtr forward; otherwise, link the previous node to the next node.
-    ItemType removedItem = nodeToDelete->getItem();
-
-    if (prevPtr == nullptr) {
-        headPtr = headPtr->getNext();
-    }else {
-        prevPtr->setNext(nodeToDelete->getNext());
+        ownerPtr = &((*ownerPtr)->next);
     }
 
-    nodeToDelete->setNext(nullptr);
-    delete nodeToDelete;
+    ItemType removedItem = (*ownerPtr)->getItem();
+
+    // Move the node being removed into nodeToDelete
+    auto nodeToDelete = std::move(*ownerPtr);
+
+    // Connect the previous owner to the node after the deleted node
+    *ownerPtr = std::move(nodeToDelete->next);
+
     itemCount--;
 
     return removedItem;

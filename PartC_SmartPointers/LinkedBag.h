@@ -7,12 +7,6 @@
 #include "Node.cpp"
 #include "BagInterface.h"
 
-//
-//
-// PLEASE DO NOT CHANGE THIS FILE
-//
-//
-
 template<typename ItemType>
 class LinkedBag : public BagInterface<ItemType> {
 
@@ -45,7 +39,7 @@ public:
 	std::vector<ItemType> toVector() const;
 
 private:
-	Node<ItemType>* headPtr{ nullptr }; // Pointer to first node
+	std::unique_ptr<Node<ItemType>> headPtr = nullptr; // Pointer to first node
 	int itemCount{ 0 };					// Current count of bag items
 
 	// pointer to the node or the null pointer 
